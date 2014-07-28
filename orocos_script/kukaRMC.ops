@@ -1,0 +1,60 @@
+// Au démarrage de l'interface ou avec un bouton start
+
+import("lwr_fri")
+import("model_free_control_art")
+
+loadComponent("lwr", "lwr_fri::FRIRTNetComponent")
+loadComponent("RMController", "KukaRMControllerRTNET")
+
+setActivity("lwr", 0, 99, ORO_SCHED_RT)
+setActivity("RMController", 0.001, 90, ORO_SCHED_RT)
+
+lwr.local_port = 49938
+lwr.configure
+
+connectPeers("lwr","RMController")
+RMController.setPeer("lwr")
+
+var ConnPolicy cp
+//Only last data written is accessible
+cp.type = DATA
+//Use mutexes
+cp.lock_policy = LOCKED
+
+//Port connection
+connect("lwr.events", "RMController.Events_i", cp)
+connect("lwr.msrJntPos", "RMController.MsrJntPos_i", cp)
+connect("lwr.msrJntVel","RMController.msrJntVel_i",cp)
+connect("lwr.msrJntTrq", "RMController.MsrJntTrq_i",cp)
+connect("RMController.JointPositions_o","lwr.desJntPos",cp)
+connect("RMController.JointTorques_o","lwr.desAddJntTrq",cp)
+
+RMController.configure
+RMController.friReset
+
+lwr.control_mode=7
+lwr.start
+
+const double PI = 3.141592653589793238462643383280
+var array frequence = array(PI/6.0, PI/6.0, PI/6.0, PI/6.0, PI/6.0, PI/6.0, PI/6.0)
+var array amplitude = array(15.0*PI/180.0, 17.0*PI/180.0, 10.0*PI/180.0, 15.0*PI/180.0, 15.0*PI/180.0, 17.0*PI/180.0, 15.0*PI/180.0)
+var array bias = array(0.0, 87.0*PI/180.0-PI/2.0, 0.0, 87.0*PI/180.0, 0.0, -55.0*PI/180.0, 0.0)
+const int Delta = 100
+var string nameErr = "errDelta30.m"
+var string nameTrq = "trqDelta30.m"
+
+var array stiffness = array(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+var array damping = array(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+RMController.setFreq(frequence)
+RMController.setAmp(amplitude)
+RMController.setBias(bias)
+RMController.setName(nameErr, nameTrq)
+RMController.setAllowWritingData(true)
+RMController.setMAFDelta(Delta)
+//RMController.setAMAFLength(2,10,30)
+RMController.setJointImpedance(stiffness, damping)
+
+// A envoyer depuis l'interface graphique
+//RMController.setControlStrategy(7)
+//RMController.start
